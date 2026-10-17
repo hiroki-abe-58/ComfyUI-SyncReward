@@ -76,8 +76,9 @@ def _leading_skip(frame) -> int:
 def decode_file(source, with_audio: bool = True):
     """Decode a video file like the official `load_av`: (frames uint8 [T,H,W,3], fps, AUDIO dict at the file's own rate | None).
 
-    Frames are the decoder's plain 8-bit RGB conversion (what torchcodec returns). The frame rate is frames / container duration
-    (torchcodec's `average_fps`). The audio is every decoded sample (not trimmed to the video length), all channels.
+    Frames are the decoder's plain 8-bit RGB conversion (what torchcodec returns). The frame rate is frames / duration of the video
+    stream (torchcodec's `average_fps`). The audio is every decoded sample (not trimmed to the video length) after the leading priming
+    samples that the first packet says to skip, all channels.
     """
     import av
 
@@ -89,8 +90,13 @@ def decode_file(source, with_audio: bool = True):
         frames = [frame.to_ndarray(format="rgb24") for frame in container.decode(video=0)]
         if not frames:
             raise MediaError("the video has no frames")
-        duration = (container.duration or 0) / 1e6
-        stream_rate = container.streams.video[0].average_rate
+        stream = container.streams.video[0]
+        # torchcodec's average_fps: frames over the duration of the *video stream*, rounded to microseconds (the container is as long as
+        # its longest stream, and generated clips often carry an audio track that is a few hundredths of a second longer than the
+        # picture; the rounding is why 145 frames in 6.041666... s give 23.99999868 and not 24.0, which decides which frame a
+        # window boundary picks)
+        duration = round(float(stream.duration * stream.time_base), 6) if stream.duration and stream.time_base else (container.duration or 0) / 1e6
+        stream_rate = stream.average_rate
     fps = len(frames) / duration if duration > 0 else float(stream_rate or 25.0)
     if not with_audio:
         return np.stack(frames), fps, None
@@ -108,17 +114,21 @@ def decode_file(source, with_audio: bool = True):
         except Exception:  # noqa: BLE001 - an older PyAV: plain decode
             manual = False
         resampler = av.audio.resampler.AudioResampler(format="fltp")
+        skip = None
         for frame in container.decode(audio=0):
             rate = frame.sample_rate
-            start = _leading_skip(frame) if manual else 0
-            for out in resampler.resample(frame):
-                data = out.to_ndarray()
-                chunks.append(data[:, start:] if start else data)
-                start = 0
+            if skip is None:  # the first packet states how many samples to drop in all, which can be more than one frame (2048 in some AAC files)
+                skip = _leading_skip(frame) if manual else 0
+            chunks.extend(out.to_ndarray() for out in resampler.resample(frame))
         chunks.extend(out.to_ndarray() for out in resampler.resample(None))
     if not chunks:
         raise MediaError("the audio track is empty")
-    return np.stack(frames), fps, {"waveform": torch.from_numpy(np.concatenate(chunks, axis=1)).unsqueeze(0), "sample_rate": int(rate)}
+    wave = np.concatenate(chunks, axis=1)
+    if skip:
+        wave = wave[:, skip:]
+    if wave.shape[1] < 1:
+        raise MediaError("the audio track is empty")
+    return np.stack(frames), fps, {"waveform": torch.from_numpy(wave).unsqueeze(0), "sample_rate": int(rate)}
 
 
 def load_video(video, with_audio: bool = True):

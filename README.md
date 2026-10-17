@@ -39,9 +39,10 @@ Windows 11, RTX 5090 (32 GB), ComfyUI v0.38.0, the ten demo clips of the officia
 - CI (GitHub Actions, Ubuntu and Windows, transformers 5.1.0 and latest): CPU tests with a stub encoder, and a real ComfyUI queue with
   the model-free nodes. CI does not download the weights (about 15 GB).
 
-- **The paper's benchmark is reproduced** (2026-10-18): all 1,000 clips of SyncReward-Bench scored by this pack give Spearman 0.780,
-  Top-1 (N = 4) 0.764 and pairwise accuracy 0.835 against the model card's 0.7823 / 0.7646 / 0.8359 (inside the 95 % intervals).
-  See [LIMITATIONS.md](LIMITATIONS.md).
+- **The paper's benchmark is reproduced** (2026-10-18): all 1,000 clips of SyncReward-Bench scored by this pack give Spearman 0.781,
+  Top-1 (N = 4) 0.764 and pairwise accuracy 0.835 against the model card's 0.7823 / 0.7646 / 0.8359 (inside the 95 % intervals; the
+  official `evaluate.py` run on the same machine gives 0.7810 / 0.7641 / 0.8351). In the official environment the rewards of the pack and of
+  `evaluate.py` differ by at most one bfloat16 step (0.008) on all 1,000 clips. See [LIMITATIONS.md](LIMITATIONS.md).
 
 **Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, other ComfyUI versions, real (not generated) videos, clips that are not
 about 5 s long, and the case *Select Best* is meant for: several candidates of the same prompt from the same generator.
@@ -89,7 +90,7 @@ Nothing is downloaded or installed by the nodes themselves.
   partly chosen by that; and a candidate with no sound, noise or someone else's sound can still win ([LIMITATIONS.md](LIMITATIONS.md)).
 - **Shift Audio**: `offset_ms` > 0 delays the sound, < 0 advances it. The picture and the length stay the same.
 - **Decoding.** An unmodified *Load Video* is read from its file the way the official code does (plain 8-bit RGB frames, frame rate =
-  frames / container duration, all audio samples). ComfyUI's own decoder converts untagged videos with a different colour matrix,
+  frames / duration of the video stream, all audio samples after the leading priming). ComfyUI's own decoder converts untagged videos with a different colour matrix,
   which changes pixels by up to about 40 of 255 and the reward by up to 0.07 on the demo clips, so it is not used for them. Trimmed,
   cropped, image-built or otherwise processed videos are converted from ComfyUI's decoded frames instead.
 - **encode_batch_size** (default 18, as in the official code) trades VRAM for nothing else: 9.8 GiB at 18, 6.7 GiB at 1; the reward can

@@ -3,7 +3,8 @@
 from pathlib import Path
 
 
-def make_sample_video(path: Path, fps: int = 25, seconds: float = 1.2, rate: int = 48000) -> Path:
+def make_sample_video(path: Path, fps: int = 25, seconds: float = 1.2, rate: int = 48000, audio_seconds: float | None = None) -> Path:
+    """`audio_seconds` makes the sound longer (or shorter) than the picture, as in many generated clips."""
     import av
     import numpy as np
 
@@ -18,7 +19,7 @@ def make_sample_video(path: Path, fps: int = 25, seconds: float = 1.2, rate: int
                 container.mux(packet)
         for packet in video.encode(None):
             container.mux(packet)
-        t = np.arange(int(rate * seconds)) / rate
+        t = np.arange(int(rate * (seconds if audio_seconds is None else audio_seconds))) / rate
         wave = (0.2 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
         frame = av.AudioFrame.from_ndarray(np.ascontiguousarray(np.stack([wave, wave])), format="fltp", layout="stereo")
         frame.sample_rate = rate

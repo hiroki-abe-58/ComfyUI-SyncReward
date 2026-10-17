@@ -40,6 +40,33 @@ def test_file_decode_gives_frames_fps_and_audio(sample_video):
     assert none_audio is None and np.array_equal(frames_only, frames)
 
 
+def test_frame_rate_comes_from_the_video_stream_not_from_a_longer_audio_track(tmp_path):
+    from sample_video import make_sample_video
+
+    path = make_sample_video(tmp_path / "long_audio.mp4", seconds=1.2, audio_seconds=1.8)  # container is 1.8 s, the picture 1.2 s
+    frames, fps, audio = media.decode_file(str(path))
+    assert frames.shape[0] == 30 and abs(fps - 25.0) < 0.3  # frames / container duration would be 16.7
+    assert audio["waveform"].shape[2] > int(48000 * 1.7)
+
+
+def test_frame_rate_uses_the_stream_duration_rounded_to_microseconds_like_torchcodec(tmp_path):
+    from sample_video import make_sample_video
+
+    path = make_sample_video(tmp_path / "ntsc_like.mp4", fps=24, seconds=145 / 24)  # 145 frames of 1/24 s: 6.0416666... s
+    frames, fps, _ = media.decode_file(str(path), with_audio=False)
+    assert frames.shape[0] == 145
+    assert fps == 145 / 6.041667 and fps != 24.0  # torchcodec reports 23.99999867586214 here; the window edges (k * 0.25 s * fps) depend on it
+
+
+def test_leading_skip_of_the_first_packet_is_dropped_in_all_even_beyond_one_frame(sample_video, monkeypatch):
+    monkeypatch.setattr(media, "_leading_skip", lambda frame: 1024)  # one frame's worth, what most AAC files state
+    _, _, one_frame = media.decode_file(str(sample_video))
+    monkeypatch.setattr(media, "_leading_skip", lambda frame: 2048)  # some AAC files (for example kling clips) state 2048 on a first frame that holds 1024
+    _, _, two_frames = media.decode_file(str(sample_video))
+    assert one_frame["waveform"].shape[2] - two_frames["waveform"].shape[2] == 1024
+    assert torch.equal(two_frames["waveform"], one_frame["waveform"][..., 1024:])
+
+
 def test_load_video_uses_the_file_for_plain_videos_and_components_otherwise(comfy_dir, sample_video):
     from comfy_api.latest import VideoComponents, VideoFromComponents, VideoFromFile
 

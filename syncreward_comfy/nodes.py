@@ -13,7 +13,8 @@ SyncRewardModel = io.Custom("SYNCREWARD_MODEL")
 SCORE_HELP = (
     "A reward between 0 (audio and picture are not synchronized) and 2 (well synchronized), predicted by the model; it was trained on "
     "human synchronization ratings of generated clips. It scores a centered 4.75 s window (18 overlapping 0.5 s segments); for shorter "
-    "clips the last frame / silence is repeated."
+    "clips the last frame / silence is repeated. It is not a timing detector (audio moved by up to 1 s barely changes it) and does not reliably "
+    "catch missing sound; differences below about 0.1 are noise. See LIMITATIONS.md."
 )
 
 

@@ -1,6 +1,6 @@
 # Raw numbers behind LIMITATIONS.md
 
-Produced by `scripts/eval_suite.py` with this pack's code and the real Stage-2 weights (RTX 5090, Windows 11, ComfyUI environment:
+Produced by `scripts/eval_suite.py` with this pack's code (version 0.1.1) and the real Stage-2 weights (RTX 5090, Windows 11, ComfyUI environment:
 torch 2.14.1, transformers 5.20.1, bfloat16 autocast). **No videos or audio are included**: the clips belong to the
 [SyncReward-Data](https://huggingface.co/datasets/Guan123/SyncReward-Data) dataset (annotations Apache-2.0; the videos come from third-party
 generators whose terms also apply). They can be fetched one by one with `scripts/fetch_bench_clips.py`.
