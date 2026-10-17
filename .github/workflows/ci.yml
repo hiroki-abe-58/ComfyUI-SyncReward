@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-latest]
         transformers: ["5.1.0", "latest"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45

@@ -47,6 +47,8 @@ to torchcodec (`os.add_dll_directory`). 23 s for the ten clips including loading
 | --- | --- | --- | --- | --- |
 | 10 clips | 10 / 10 | 10 / 10 | 10 / 10 | **10 / 10** |
 
+(Run again on 2026-10-18 with version 0.1.1 after the decoding fix of section 10: 10 / 10 in all four columns.)
+
 How it got there (the decoder was changed twice during development, so this is worth knowing):
 - ComfyUI's own decoder returns different pixels than torchcodec for videos without colour tags (it uses a BT.709 matrix, torchcodec /
   plain PyAV the default): mean absolute difference 1.1 of 255, up to 42; the reward differed (case 1 after: 1.719 vs 1.789). The pack
