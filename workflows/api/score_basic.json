@@ -1,0 +1,7 @@
+{
+  "1": {"class_type": "SyncRewardLoader", "inputs": {"checkpoint": "syncreward-stage2", "encoder": "pe-av-large", "device": "auto", "keep_loaded": true}},
+  "2": {"class_type": "LoadVideo", "inputs": {"file": "example.mp4"}},
+  "3": {"class_type": "SyncRewardScore", "inputs": {"model": ["1", 0], "video": ["2", 0], "encode_batch_size": 18}},
+  "4": {"class_type": "PreviewAny", "inputs": {"source": ["3", 0]}},
+  "5": {"class_type": "PreviewAny", "inputs": {"source": ["3", 1]}}
+}

@@ -1,0 +1,151 @@
+# Verification record
+
+What was run, on what, and what came out. Everything here was run on 2026-10-17/18 on one machine; numbers are single runs unless
+stated. The ten clips are the demo videos of the official repository (`assets/demo/case{1..5}-{before,after}.mp4`, 5 s, 768x512, 24 fps,
+stereo AAC at 48 kHz); they are read locally and not redistributed.
+
+## Environment
+
+| | |
+| --- | --- |
+| OS / GPU | Windows 11 Pro (10.0.26200), NVIDIA GeForce RTX 5090 32 GB (compute capability 12.0), driver 610.88, 64 GB RAM |
+| ComfyUI | v0.38.0 (`6b747c0428c343e1417219641db93a4fb7cb69ae`), Python 3.12.13, own virtual environment, 127.0.0.1 only |
+| ComfyUI environment | torch 2.14.1+cu130, transformers 5.20.1, timm 1.0.26, av 19.0.1 |
+| Official-reference environment | torch 2.9.1+cu128, torchaudio 2.9.1, torchcodec 0.8.1, transformers 5.1.0, timm 1.0.26, PyAV 19.0.1 (only for this pack's decoder in the comparison), FFmpeg 7.1.1 shared DLLs registered with `os.add_dll_directory` |
+| Upstream code | WeChatCV/SyncReward `f29fbdc2bb2dd3d59644ffd3c60d207dd3e62615` (vendored unmodified, checked by `tests/test_vendor.py`) |
+| Models | Guan123/SyncReward `04bc7701da8d8466c7b3aa2dec22a2a5051e6f0a`, folder `syncreward-stage2`; facebook/pe-av-large `0d24878d4107d64bef49e53602fc34ce6f94f6d8` (both: model card Apache-2.0) |
+
+Weight file SHA-256 (equal to the values published by the Hub):
+
+```
+6c09263ac41d59baf78a181f17e4116128a337d70a03637886de3734450a32a2  syncreward-stage2/model.safetensors   (fp32, 6.18 GB)
+0bb0e1e8b5d236352e1a828a89cd7a97af8c8f9b6dc43312f58e49d0faa71651  syncreward-stage2/config.json
+7192bdcfc5fec52687b36c92db404a303b0d9bbbb85d26839e530b4f3d44a354  pe-av-large/model.safetensors        (8.94 GB)
+```
+
+## 1. The official code on this machine
+
+The official `score.py`, unmodified, ran on the ten clips with the Stage-2 checkpoint in the official-reference environment (torch 2.9.1).
+Getting there on Windows needed three things the official requirements (torch 2.6, torchaudio 2.6, FFmpeg 4.4.2 on H20 GPUs) do not
+say: a PyTorch build that supports compute capability 12.0 (2.9.1+cu128 here), `torchaudio.load` of `.mp4` working (it raised
+"Couldn't find appropriate backend" with torchaudio 2.8 on Windows; 2.9.1 delegates to torchcodec), and FFmpeg's shared DLLs made visible
+to torchcodec (`os.add_dll_directory`). 23 s for the ten clips including loading; the system GPU memory in use peaked at 15,715 MiB (15.3 GiB, including the desktop).
+
+| clip | before | after |
+| --- | --- | --- |
+| case 1 | 0.0623 | 1.7891 |
+| case 2 | 0.6094 | 1.7266 |
+| case 3 | 1.0312 | 1.1484 |
+| case 4 | 0.7266 | 1.2344 |
+| case 5 | 0.7969 | 1.1172 |
+
+## 2. This pack against the official code, clip by clip
+
+`scripts/parity_vs_official.py`, both in the official-reference environment, each with its own model instance:
+
+| | frames identical | frame rate identical | 48 kHz mono audio identical | reward identical |
+| --- | --- | --- | --- | --- |
+| 10 clips | 10 / 10 | 10 / 10 | 10 / 10 | **10 / 10** |
+
+How it got there (the decoder was changed twice during development, so this is worth knowing):
+- ComfyUI's own decoder returns different pixels than torchcodec for videos without colour tags (it uses a BT.709 matrix, torchcodec /
+  plain PyAV the default): mean absolute difference 1.1 of 255, up to 42; the reward differed (case 1 after: 1.719 vs 1.789). The pack
+  therefore decodes an unmodified `Load Video` from its file with PyAV's plain `rgb24` conversion, which reproduced torchcodec's frames
+  exactly.
+- The audio: FFmpeg's default decode cuts the encoder padding at the end of the AAC stream (240,480 samples) while torchcodec returns it
+  (240,640): the 160 extra samples move the centered window by 1.7 ms and flipped the reward of some clips by one bfloat16 step. The
+  pack decodes with `flags2=+skip_manual`, drops the leading priming samples only, and then equals torchcodec sample for sample.
+- The frame rate is frames / container duration, as in torchcodec (`23.999998413...`, not 24).
+
+## 3. Through the real ComfyUI queue (ComfyUI environment, torch 2.14.1, transformers 5.20.1)
+
+A fresh ComfyUI v0.38.0 with this pack installed and the models in `models/syncreward`; `scripts/queue_scores.py` posts the shipped
+`score_basic` workflow (Load Video -> SyncReward Score) for each clip through `POST /prompt`:
+
+| clip | pack | official | difference |
+| --- | --- | --- | --- |
+| case1-before | 0.06226 | 0.06226 | 0 |
+| case1-after | 1.78906 | 1.78906 | 0 |
+| case2-before | 0.60938 | 0.60938 | 0 |
+| case2-after | 1.72656 | 1.72656 | 0 |
+| case3-before | 1.03125 | 1.03125 | 0 |
+| case3-after | 1.14844 | 1.14844 | 0 |
+| case4-before | 0.72656 | 0.72656 | 0 |
+| case4-after | 1.23438 | 1.23438 | 0 |
+| case5-before | 0.79688 | 0.79688 | 0 |
+| case5-after | 1.10938 | 1.11719 | -0.0078 |
+
+9 of 10 identical; the tenth is one bfloat16 step away. The cause is the library versions, not the decoding: for `case5-after` the
+pack's arrays are bit-identical to the official ones, and the official arrays also give 1.10938 in the ComfyUI environment.
+Per scoring call: 1.5 to 2.0 s; peak VRAM allocated by the model 9.816 GiB at `encode_batch_size` 18.
+
+`encode_batch_size` (clips case2-after / case3-before / case5-after): rewards 1.7266 / 1.0312 / 1.1094 at batch sizes 18, 9, 6 and 1;
+at batch size 3 two of the three moved up by 0.0078. Peak VRAM allocated: 9.82 / 8.16 / 7.60 / 7.05 / 6.68 GiB at 18 / 9 / 6 / 3 / 1.
+
+## 4. A compatibility finding: transformers 5.20 and the PE-AV vision head
+
+With transformers 5.20.1 the official `build_reward_model` fails on the PE-AV checkpoint:
+`video_model.video_encoder.embedder.vision_model.timm_model.head.weight | MISMATCH | ckpt torch.Size([1024, 1024]) vs model torch.Size([2, 1024])`.
+The nested `timm_wrapper` configuration (`config.audio_video_config.video_config.vision_config`) is read with `num_labels = 2` instead of the
+`num_classes = 1024` of `config.json`; transformers 5.1.0 reads 1024. (timm 1.0.26 and 1.0.30 behave the same; the version of timm is
+not the cause.) The pack restores `num_classes` on that sub-configuration before building the encoder and then runs the official code
+(`tests/test_runtime_stub.py::test_pe_av_config_gets_its_vision_head_width_back` checks it against the real `config.json`). With
+transformers 5.1.0 nothing is changed (the pack reports `timm_labels_corrected: 0`).
+
+## 5. Behavior with the real weights (queue)
+
+| Check | Result |
+| --- | --- |
+| Score a clip | 11.2 s wall for the first job (loading ~9.8 s); later jobs: scoring 1.5 to 2.0 s plus decoding |
+| Shift Audio 250 ms then Score vs the original (case3-after) | 1.1484 vs 1.1484 |
+| Select Best over case3-before / case3-after / case5-before | best = 2 (1.1484); rewards 1.0312 / 1.1484 / 0.7969 |
+| Select Best over +500 ms / original / -250 ms of case2-after | all 1.7266 -> number 1 (ties go to the lower number) |
+| Checkpoint folder that does not exist | rejected by ComfyUI's validation before queuing |
+| `keep_loaded = false` | GPU memory in use fell from 8470 MiB to 2134 MiB after the job |
+| SyncReward Unload node | 8470 MiB to 2134 MiB |
+| CPU device (fp32, real weights) | succeeded: reward 1.7917 (GPU bf16: 1.7891) in 103 s including loading |
+| System commit charge | 19 to 39 GiB (limit 111.4 GiB) during the runs; lowest free RAM 35 GiB |
+
+## 6. What the reward reacts to (10 clips, `scripts/experiment_audio_offset.py`, `scripts/experiment_controls.py`)
+
+Mean reward over the ten clips; unshifted 1.0234. Positive offsets delay the sound; the picture and the length do not change.
+
+| offset | -1000 ms | -500 | -250 | -100 | +100 | +250 | +500 | +1000 | +2000 | +3000 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| mean reward | 0.9933 | 1.0166 | 1.0242 | 1.0325 | 1.0228 | 1.0175 | 1.0088 | 0.9905 | 0.9507 | 0.8790 |
+
+| other audio | silence | audio of another clip | white noise, same RMS | played backwards |
+| --- | --- | --- | --- | --- |
+| mean reward | 0.7176 | 0.8237 | 0.9869 | 1.0311 |
+
+In the offset sweep (9 offsets, 10 clips) the unshifted clip had the highest reward in 4 of 10 clips and 57.5 % of the shifted runs were
+below their unshifted run. Per-clip rewards are in the raw files written by the scripts. Reading: the reward drops clearly for missing or
+unrelated sound and by a few hundredths for offsets up to 1 s; it did not react to time reversal. This says nothing about agreement
+with human raters (the paper's 1,000-clip benchmark was not run here).
+
+## 7. Tests
+
+| Where | What | Result |
+| --- | --- | --- |
+| local, torch 2.14.1 CPU, transformers 5.20.1 | ruff; `pytest tests` (video/audio conversion and decoding, the audio shift, scoring with a stub encoder, the PE-AV config fix against the real `config.json`, vendored-code manifest + byte comparison with the pinned commit, node registration, ComfyUI validation of the shipped workflows, node execution) | 26 passed |
+| local, `scripts/ci_queue_check.py` | a second fresh ComfyUI checkout with the pack copied in, `--cpu`: object_info, then Load Video -> Shift Audio -> Get Video Components through `POST /prompt` | passed |
+| ComfyUI frontend | `scripts/export_gui_workflows.py` loads each API workflow with the frontend's `loadApiJson`: no missing node types, `graphToPrompt` returns the same classes and values, no page errors | 3 of 3 |
+
+GitHub Actions results are linked from the repository's release notes.
+
+## 8. Not verified
+
+Linux or macOS with a GPU; AMD, Intel or Apple GPUs; other ComfyUI, PyTorch or transformers versions than the ones above; the paper's human-rated
+benchmark; clips longer than a few seconds, at other resolutions or frame rates; videos whose audio is not AAC; any comparison with other
+synchronization metrics.
+
+## Commands
+
+```
+python tools/download_models.py --models-dir <ComfyUI>/models/syncreward
+python scripts/parity_vs_official.py --upstream <SyncReward checkout> --checkpoint <syncreward-stage2> --encoder <pe-av-large> --ffmpeg-dll-dir <FFmpeg shared bin> clip.mp4 ...
+python scripts/queue_scores.py --server http://127.0.0.1:8188 --comfy-input <ComfyUI>/input --official official.jsonl clip.mp4 ...
+python scripts/experiment_audio_offset.py --server http://127.0.0.1:8188 --comfy-input <ComfyUI>/input --out offsets.json clip.mp4 ...
+python scripts/experiment_controls.py --comfyui <ComfyUI> --checkpoint <syncreward-stage2> --encoder <pe-av-large> clip.mp4 ...
+python scripts/ci_queue_check.py --comfyui <ComfyUI>
+```

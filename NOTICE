@@ -1,0 +1,26 @@
+SyncReward for ComfyUI
+Copyright (c) 2026 hiroki-abe-58. MIT License (see LICENSE).
+Unofficial integration. Not affiliated with or endorsed by the SyncReward authors (Renmin University of China, WeChat / Tencent), Meta or Comfy Org.
+
+Third-party code included in this repository
+- syncreward_comfy/vendor/syncreward/: unmodified copy of the `syncreward` package from
+  https://github.com/WeChatCV/SyncReward (commit f29fbdc2bb2dd3d59644ffd3c60d207dd3e62615), Apache License 2.0. The upstream
+  LICENSE is in syncreward_comfy/vendor/LICENSE. syncreward_comfy/vendor/MANIFEST.sha256 lists the SHA-256 of every vendored file.
+- tools/, scripts/, tests/: maintainer tools by the same author as this repository.
+
+Models (not included; downloaded by the user, e.g. with tools/download_models.py)
+- Guan123/SyncReward on Hugging Face (https://huggingface.co/Guan123/SyncReward), folder syncreward-stage2: model card license Apache-2.0.
+- facebook/pe-av-large on Hugging Face (https://huggingface.co/facebook/pe-av-large) (Meta's PE-AV encoder): model card license Apache-2.0.
+  Please read both model cards for the terms that apply to you.
+
+Media of the official repository (assets/demo/*.mp4)
+- NOT included here. They are outputs of third-party audio-video generators and are not covered by this repository's licenses.
+  The numbers in docs/VERIFICATION.md were measured on them; the videos themselves are not redistributed.
+
+Libraries used at run time (installed with ComfyUI or by requirements.txt, not included)
+- PyTorch (BSD-style), Hugging Face transformers (Apache License 2.0), timm (Apache License 2.0), PyAV (BSD-3-Clause, FFmpeg LGPL/GPL
+  components in its wheels), NumPy, PyYAML.
+- ComfyUI (GPL-3.0) hosts the nodes; comfy.audio.resample (BSD-2-Clause, adapted from TorchAudio) is used when audio must be resampled.
+
+The reward is a model prediction, not a measurement. The licenses above do not by themselves settle every third-party right in the
+videos you score; you are responsible for the media you use.

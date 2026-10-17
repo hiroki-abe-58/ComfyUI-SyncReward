@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# CPU only. No model weights are downloaded: the model tests use a stub encoder, and only the 50 kB config.json of
+# facebook/pe-av-large is fetched (pinned revision, SHA-256 checked) to test the PE-AV configuration fix on the installed
+# transformers version. Scoring with the real weights (about 15 GB) is checked outside CI; see docs/VERIFICATION.md.
+env:
+  COMFYUI_REF: v0.38.0
+  COMFYUI_COMMIT: 6b747c0428c343e1417219641db93a4fb7cb69ae
+  UPSTREAM_COMMIT: f29fbdc2bb2dd3d59644ffd3c60d207dd3e62615
+  PEAV_REVISION: 0d24878d4107d64bef49e53602fc34ce6f94f6d8
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        transformers: ["5.1.0", "latest"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ComfyUI-SyncReward
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reference checkouts and the PE-AV config (pinned)
+        run: |
+          git -c core.autocrlf=false clone --quiet --depth 1 --branch $env:COMFYUI_REF https://github.com/Comfy-Org/ComfyUI.git refs/ComfyUI
+          if ((git -C refs/ComfyUI rev-parse HEAD) -ne $env:COMFYUI_COMMIT) { throw "ComfyUI commit mismatch" }
+          git -c core.autocrlf=false clone --quiet --filter=blob:none https://github.com/WeChatCV/SyncReward.git refs/SyncReward
+          git -C refs/SyncReward -c core.autocrlf=false checkout --quiet $env:UPSTREAM_COMMIT
+          New-Item -ItemType Directory -Force refs/peav | Out-Null
+          Invoke-WebRequest -UseBasicParsing -OutFile refs/peav/config.json "https://huggingface.co/facebook/pe-av-large/resolve/$($env:PEAV_REVISION)/config.json"
+          # tests/peav_config.sha256: "<sha256>  config.json"
+          $expected = (Get-Content ComfyUI-SyncReward/tests/peav_config.sha256).Split(' ')[0]
+          if ((Get-FileHash refs/peav/config.json -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "config.json hash mismatch" }
+
+      - name: Install (CPU)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true   # a failing pip must fail the step
+          python -m pip install --upgrade pip
+          # CPU torch first: on Linux ComfyUI's unpinned `torch` requirement would otherwise pull the CUDA build and its libraries
+          pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r refs/ComfyUI/requirements.txt pytest ruff "timm>=1.0.26"
+          if ("${{ matrix.transformers }}" -ne "latest") { pip install "transformers==${{ matrix.transformers }}" }
+          pip list
+
+      - name: Lint
+        run: ruff check --no-cache ComfyUI-SyncReward
+
+      - name: No absolute local paths in the repository
+        run: |
+          $files = git -C ComfyUI-SyncReward ls-files | Where-Object { $_ -notmatch '\.(png|jpg|mp4)$' } | ForEach-Object { Join-Path ComfyUI-SyncReward $_ }
+          $hits = $files | Select-String -Pattern '[A-Za-z]:\\{1,2}[A-Za-z0-9_.-]+\\|/home/[a-z]+/|/Users/[A-Za-z]+/'
+          if ($hits) { $hits | ForEach-Object { "$($_.Path):$($_.LineNumber)" }; throw "absolute local path found" }
+
+      - name: Tests (references required, nothing may be skipped)
+        env:
+          SYNCREWARD_COMFYUI_DIR: ${{ github.workspace }}/refs/ComfyUI
+          SYNCREWARD_UPSTREAM_DIR: ${{ github.workspace }}/refs/SyncReward
+          SYNCREWARD_PEAV_CONFIG: ${{ github.workspace }}/refs/peav/config.json
+          SYNCREWARD_REQUIRE_REFERENCES: "1"
+        run: |
+          Set-Location ComfyUI-SyncReward
+          python -m pytest tests -q -rs -p no:cacheprovider -W ignore::DeprecationWarning -W ignore::FutureWarning
+
+      - name: Real ComfyUI queue on CPU (model-free nodes)
+        run: |
+          python ComfyUI-SyncReward/scripts/ci_queue_check.py --comfyui refs/ComfyUI --workdir queue-logs
+
+      - name: ComfyUI log on failure
+        if: failure()
+        run: |
+          if (Test-Path queue-logs/comfyui.log) { Get-Content queue-logs/comfyui.log -Tail 120 }
