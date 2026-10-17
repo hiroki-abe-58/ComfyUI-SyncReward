@@ -197,6 +197,12 @@ After the fix, `scripts/eval_suite.py bench` against the official `evaluate.py` 
 | official (torch 2.9.1, transformers 5.1.0) | 842 / 1000 | **1000 / 1000** | 0.0078 |
 | ComfyUI (torch 2.14.1, transformers 5.20.1) | 726 / 1000 | 990 / 1000 | 0.0234 (one clip above 0.02) |
 
+Through the real ComfyUI queue (clean install updated to commit `b56f7fc`, ComfyUI v0.38.0, torch 2.14.1, transformers 5.20.1; `scripts/queue_scores.py`): 31
+videos (3 benchmark clips per generator + the 10 demo clips) all succeeded; compared with the official script's rewards 24 are identical, 30 of 31 are within one
+bfloat16 step and the largest difference is 0.0195 (one davinci clip; the same clip agrees within one step in the official environment). The three shipped
+API workflows (`score_basic`, `shift_compare`, `select_best`) ran. The *Select Best* example picked the clip whose reward was 0.008 above the others
+(1.1562 against 1.1484 twice), a difference that is inside the noise described in LIMITATIONS.md.
+
 The official script itself moves by one step with its batch size (batch 1 vs batch 8 on the 285 nava and seedance clips: 260 identical, all within
 0.0078), so the remaining one-step differences are not decoding differences. Regression tests: `tests/test_media.py` now checks a video whose
 audio is longer than its picture, a first-packet skip of 2048 over two frames and the microsecond rounding of the frame rate.
