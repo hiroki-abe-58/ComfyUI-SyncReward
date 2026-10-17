@@ -149,7 +149,7 @@ python scripts/parity_vs_official.py --upstream <SyncReward checkout> --checkpoi
 python scripts/queue_scores.py --server http://127.0.0.1:8188 --comfy-input <ComfyUI/input> --official official.jsonl clip.mp4 ...
 ```
 
-`tools/queue_client.py` submits any API workflow to a running ComfyUI. Refreshing the vendored code: replace
+`scripts/queue_client.py` submits any API workflow to a running ComfyUI. Refreshing the vendored code: replace
 `syncreward_comfy/vendor/syncreward` with the new upstream files, run `scripts/update_vendor_manifest.py`, update `UPSTREAM.md` and
 the commit in `.github/workflows/ci.yml`.
 

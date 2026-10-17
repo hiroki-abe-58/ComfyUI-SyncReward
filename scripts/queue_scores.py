@@ -18,7 +18,7 @@ import statistics
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import queue_client  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]

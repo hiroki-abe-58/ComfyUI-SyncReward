@@ -1,7 +1,6 @@
 """Submit an API-format workflow to a running ComfyUI, wait for it, and save the outputs (standard library only).
 
-    python tools/queue_client.py workflows/api/tts_basic.json --server http://127.0.0.1:8188 --out outputs/ \
-        --set 3.text="Hello there." --set 3.seed=7
+    python scripts/queue_client.py workflows/api/score_basic.json --server http://127.0.0.1:8188 --set 2.file=my_video.mp4
 
 The workflow runs through the normal ComfyUI queue (POST /prompt), exactly as the web UI would run it.
 `--set NODE.INPUT=VALUE` overrides one widget value (VALUE is parsed as JSON when possible, else used as text).
