@@ -39,8 +39,18 @@ Windows 11, RTX 5090 (32 GB), ComfyUI v0.38.0, the ten demo clips of the officia
 - CI (GitHub Actions, Ubuntu and Windows, transformers 5.1.0 and latest): CPU tests with a stub encoder, and a real ComfyUI queue with
   the model-free nodes. CI does not download the weights (about 15 GB).
 
-**Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, other ComfyUI versions, the 1,000-clip human-rated benchmark of the
-paper (so no claim here about agreement with human raters), videos longer than a few seconds or at other resolutions.
+- **The paper's benchmark is reproduced** (2026-10-18): all 1,000 clips of SyncReward-Bench scored by this pack give Spearman 0.780,
+  Top-1 (N = 4) 0.764 and pairwise accuracy 0.835 against the model card's 0.7823 / 0.7646 / 0.8359 (inside the 95 % intervals).
+  See [LIMITATIONS.md](LIMITATIONS.md).
+
+**Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, other ComfyUI versions, real (not generated) videos, clips that are not
+about 5 s long, and the case *Select Best* is meant for: several candidates of the same prompt from the same generator.
+
+> **Read [LIMITATIONS.md](LIMITATIONS.md) before you rely on the score or on *Select Best*.** Measured on 70 well-synchronized
+> benchmark clips: moving the audio by up to ±1 s changes the reward by 0.01 on average and is not detected; silence, noise or another
+> clip's sound lowers it clearly in only about 30 to 70 % of the clips; and a heavy re-encode, half resolution or 16 kHz audio lowers it
+> by 55 to 80 % as much as removing the sound does. The score agrees with human raters on average (benchmark above) but it is **not a timing detector** and
+> not a test for missing sound.
 
 ## Install
 
@@ -73,7 +83,10 @@ Nothing is downloaded or installed by the nodes themselves.
 - **Score**: connect a *Load Video* to **video**. Videos without a sound track need an **audio** input. The report shows the reward,
   the clip length, whether the clip was shorter than the 4.75 s window and the time and peak VRAM of that run.
 - **Select Best**: connect two to six videos (for example several generations of the same prompt); wire **best_video** to *Save Video*.
-  Ties go to the lower number. The scores are listed in the JSON output.
+  Ties go to the lower number. The scores are listed in the JSON output. **Treat the choice as a suggestion.** On benchmark clips
+  that humans rated close together (gap up to a third of a rating step) the reward orders a pair like the humans only 69 % of the time;
+  rewards that differ by less than about 0.1 are noise; candidates that were encoded differently (resolution, bitrate, frame rate) are
+  partly chosen by that; and a candidate with no sound, noise or someone else's sound can still win ([LIMITATIONS.md](LIMITATIONS.md)).
 - **Shift Audio**: `offset_ms` > 0 delays the sound, < 0 advances it. The picture and the length stay the same.
 - **Decoding.** An unmodified *Load Video* is read from its file the way the official code does (plain 8-bit RGB frames, frame rate =
   frames / container duration, all audio samples). ComfyUI's own decoder converts untagged videos with a different colour matrix,
@@ -106,7 +119,9 @@ and replacing the audio: silence 0.718, the audio of another clip 0.824, white n
 backwards 1.031. So **in this setup the reward is a coarse measure**: it drops clearly for missing or unrelated sound and by a few
 hundredths for offsets of up to one second, and the unshifted clip had the highest reward in only 4 of 10 clips in the offset sweep. Do not use
 it to detect small timing offsets or reversed audio. (Single runs on one machine; the sweep and the controls are
-`scripts/experiment_audio_offset.py` and `scripts/experiment_controls.py`.)
+`scripts/experiment_audio_offset.py` and `scripts/experiment_controls.py`. A larger set, 70 well-synchronized benchmark clips with
+shifts of 0.2 / 0.5 / 1.0 s, reversed, silent, noisy and unrelated sound and six re-encodings, gives the same picture:
+[LIMITATIONS.md](LIMITATIONS.md).)
 
 ## Measured on this setup
 

@@ -92,6 +92,16 @@ not the cause.) The pack restores `num_classes` on that sub-configuration before
 (`tests/test_runtime_stub.py::test_pe_av_config_gets_its_vision_head_width_back` checks it against the real `config.json`). With
 transformers 5.1.0 nothing is changed (the pack reports `timm_labels_corrected: 0`).
 
+**Minimal reproduction and cause (2026-10-18).** `python scripts/repro_timm_labels.py <folder with config.json>` prints the value
+for the installed version (5.1.0: 1024, 5.20.1: 2). Without any file: `PeVideoEncoderConfig().vision_config.num_labels` is 1024 in 5.1.0 and
+2 in 5.20.1; `TimmWrapperConfig.from_dict({"num_classes": 1024, ...}).num_labels` is 1024 in both, `TimmWrapperConfig(num_classes=1024, ...)` is 2 in
+both. In 5.20.1 the nested configuration is created by `SubConfigSpec.create_subconfig` as `subconfig_cls(**subconfig)`, which skips
+`TimmWrapperConfig.from_dict` (the only place that turns `num_classes` into `num_labels`); in 5.1.0 `PeVideoEncoderConfig` called
+`from_dict`. The same code is on transformers `main` (d4804f9, 2026-10-17); 5.20.1 is the latest release. A fix that makes
+`TimmWrapperConfig` accept `num_classes` itself restores 1024 (tested by patching `__post_init__` in 5.20.1: default config, the real
+`config.json` and ordinary `num_labels` all behave); I did not run the transformers test suite. No issue or PR was opened in the
+transformers repository; a draft exists locally.
+
 ## 5. Behavior with the real weights (queue)
 
 | Check | Result |
@@ -135,13 +145,37 @@ GitHub Actions results are linked from the repository's release notes.
 
 ## 8. Not verified
 
-Linux or macOS with a GPU; AMD, Intel or Apple GPUs; other ComfyUI, PyTorch or transformers versions than the ones above; the paper's human-rated
-benchmark; clips longer than a few seconds, at other resolutions or frame rates; videos whose audio is not AAC; any comparison with other
-synchronization metrics.
+Linux or macOS with a GPU; AMD, Intel or Apple GPUs; other ComfyUI, PyTorch or transformers versions than the ones above; real (not generated)
+videos; candidates of the same prompt from the same generator; clips at frame rates other than about 24 fps or lengths other than about 5 s;
+videos whose audio is not AAC; any comparison with other synchronization metrics. (The paper's human-rated benchmark and the controlled
+changes are in section 9.)
+
+## 9. The human-rated benchmark and controlled changes (2026-10-18, `scripts/eval_suite.py`)
+
+Same environment as section 3 (torch 2.14.1, transformers 5.20.1, bfloat16 autocast), in-process through the pack's own decoding and scoring
+code. The 1,000 clips of SyncReward-Bench (dataset revision `a7904b6d5901`, 3.16 GB, fetched clip by clip from the dataset's zip files with
+`scripts/fetch_bench_clips.py`; kept locally, not redistributed) were scored in about 35 minutes (1.3 to 2.5 s per clip); 0 failures.
+
+| metric | this pack | 95 % bootstrap interval | model card |
+| --- | --- | --- | --- |
+| Spearman | 0.7801 | [0.755, 0.804] | 0.7823 |
+| Top-1 (N = 4, 1000 groupings; chance 0.3323) | 0.7639 | [0.713, 0.820] | 0.7646 |
+| Pairwise accuracy (421,748 pairs) | 0.8347 | [0.821, 0.848] | 0.8359 |
+| Pearson / Kendall tau-b / MAE | 0.7707 / 0.6163 / 0.2859 | | |
+| Pairwise accuracy, pairs with human gap > 0.75 (153,238 pairs) | 0.9622 | | |
+
+The metrics are the vendored upstream `syncreward.metrics` functions. Tables by generator, by human gap, best-of-N for N = 2, 3, 4, 6 and the 70-clip
+controlled-change experiment (shifts, reversal, silence, noise, other audio, gain, six re-encodings) are in [LIMITATIONS.md](../LIMITATIONS.md);
+the per-clip numbers are in [docs/eval/](eval/). Setup of the controlled-change experiment: 10 clips per generator with a human target of at least 1.5
+(fixed seed), each scored 19 times; the false alarm threshold is taken from the drops caused by the two changes that should not matter
+(-12 dB gain, x264 crf 18 + AAC 192k).
 
 ## Commands
 
 ```
+python scripts/fetch_bench_clips.py --data-dir <dataset jsonl files> --out <dir>                                                  # section 9
+python scripts/eval_suite.py bench|perturb|report ...                                                                            # section 9 (docs/eval/README.md)
+python scripts/repro_timm_labels.py <folder with the pe-av-large config.json>                                                    # section 4
 python tools/download_models.py --models-dir <ComfyUI>/models/syncreward
 python scripts/parity_vs_official.py --upstream <SyncReward checkout> --checkpoint <syncreward-stage2> --encoder <pe-av-large> --ffmpeg-dll-dir <FFmpeg shared bin> clip.mp4 ...
 python scripts/queue_scores.py --server http://127.0.0.1:8188 --comfy-input <ComfyUI>/input --official official.jsonl clip.mp4 ...
