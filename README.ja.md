@@ -79,7 +79,8 @@
 ## ライセンス
 
 - このノード集のコード：**MIT**（[LICENSE](LICENSE)）。
-- `syncreward_comfy/vendor/syncreward`：公式パッケージの無改変コピー、**Apache-2.0**（[NOTICE](NOTICE)）。
+- `syncreward_comfy/vendor/syncreward`：公式パッケージのコピー、**Apache-2.0**（[NOTICE](NOTICE)）。学習専用の関数 1 つ（`utils.py` の
+  `setup_distributed`）だけを無効化しており（`syncreward_comfy/vendor/UPSTREAM.md`）、それ以外は無改変です。
 - モデルの重み（SyncReward Stage 2、Meta の PE-AV）は**同梱していません**（モデルカードはいずれも Apache-2.0）。公式リポジトリの
   デモ動画も同梱しておらず、上記ライセンスの対象外です。
 

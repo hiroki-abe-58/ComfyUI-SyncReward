@@ -1,3 +1,4 @@
+# This file was changed by ComfyUI-SyncReward; syncreward_comfy/vendor/UPSTREAM.md describes the change.
 """Config parsing and torch.distributed helpers."""
 
 import argparse
@@ -24,17 +25,8 @@ def parse_args_with_config(parser: argparse.ArgumentParser, argv=None):
 
 
 def setup_distributed(backend=None):
-    """Initialise torch.distributed when launched by torchrun with WORLD_SIZE > 1."""
-    world = int(os.environ.get("WORLD_SIZE", "1"))
-    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
-    if world > 1 and not dist.is_initialized():
-        dist.init_process_group(backend or ("nccl" if torch.cuda.is_available() else "gloo"))
-    if torch.cuda.is_available():
-        torch.cuda.set_device(local_rank)
-        device = torch.device("cuda", local_rank)
-    else:
-        device = torch.device("cpu")
-    return get_rank(), get_world_size(), device
+    """Initialise torch.distributed when launched by torchrun (training; not part of the ComfyUI node pack)."""
+    raise NotImplementedError("setup_distributed is the training entry point and is not included in ComfyUI-SyncReward")
 
 
 def cleanup_distributed():

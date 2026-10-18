@@ -1,4 +1,4 @@
-"""ComfyUI nodes for SyncReward (in-process; no subprocess, no download at run time)."""
+"""ComfyUI nodes for SyncReward (runs in the ComfyUI process; nothing is downloaded at run time)."""
 
 from __future__ import annotations
 

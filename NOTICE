@@ -3,9 +3,12 @@ Copyright (c) 2026 hiroki-abe-58. MIT License (see LICENSE).
 Unofficial integration. Not affiliated with or endorsed by the SyncReward authors (Renmin University of China, WeChat / Tencent), Meta or Comfy Org.
 
 Third-party code included in this repository
-- syncreward_comfy/vendor/syncreward/: unmodified copy of the `syncreward` package from
+- syncreward_comfy/vendor/syncreward/: copy of the `syncreward` package from
   https://github.com/WeChatCV/SyncReward (commit f29fbdc2bb2dd3d59644ffd3c60d207dd3e62615), Apache License 2.0. The upstream
   LICENSE is in syncreward_comfy/vendor/LICENSE. syncreward_comfy/vendor/MANIFEST.sha256 lists the SHA-256 of every vendored file.
+  Changed file (since 0.1.2): syncreward/utils.py, where setup_distributed() (the training entry point, which reads the WORLD_SIZE
+  and LOCAL_RANK environment variables) raises an error instead; the file carries a change notice and
+  syncreward_comfy/vendor/UPSTREAM.md describes the change. All other files are unmodified.
 - tools/, scripts/, tests/: maintainer tools by the same author as this repository.
 
 Models (not included; downloaded by the user, e.g. with tools/download_models.py)

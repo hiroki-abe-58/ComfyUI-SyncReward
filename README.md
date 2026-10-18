@@ -148,8 +148,9 @@ while loading (the PE-AV checkpoint is read once as a whole before the Stage-2 w
 ## Licenses
 
 - This node pack's code: **MIT** ([LICENSE](LICENSE)).
-- `syncreward_comfy/vendor/syncreward`: unmodified copy of the official package, **Apache-2.0** ([NOTICE](NOTICE),
-  `syncreward_comfy/vendor/LICENSE`).
+- `syncreward_comfy/vendor/syncreward`: copy of the official package, **Apache-2.0** ([NOTICE](NOTICE),
+  `syncreward_comfy/vendor/LICENSE`); one training-only function in `utils.py` is disabled (see `syncreward_comfy/vendor/UPSTREAM.md`),
+  everything else is unmodified.
 - Model weights are **not included**: SyncReward Stage 2 and Meta's PE-AV encoder, both Apache-2.0 according to their model cards.
 - The demo videos of the official repository are **not included** here and are not covered by these licenses; the numbers above were
   measured on them.
@@ -166,7 +167,8 @@ python scripts/queue_scores.py --server http://127.0.0.1:8188 --comfy-input <Com
 ```
 
 `scripts/queue_client.py` submits any API workflow to a running ComfyUI. Refreshing the vendored code: replace
-`syncreward_comfy/vendor/syncreward` with the new upstream files, run `scripts/update_vendor_manifest.py`, update `UPSTREAM.md` and
+`syncreward_comfy/vendor/syncreward` with the new upstream files, run `scripts/vendor_patch.py --upstream <checkout>` and
+`scripts/update_vendor_manifest.py`, update `UPSTREAM.md` and
 the commit in `.github/workflows/ci.yml`.
 
 ## Citation

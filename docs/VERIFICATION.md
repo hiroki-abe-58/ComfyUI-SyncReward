@@ -209,6 +209,15 @@ The official script itself moves by one step with its batch size (batch 1 vs bat
 0.0078), so the remaining one-step differences are not decoding differences. Regression tests: `tests/test_media.py` now checks a video whose
 audio is longer than its picture, a first-packet skip of 2048 over two frames and the microsecond rounding of the frame rate.
 
+## 11. 0.1.2: the vendored training entry point is disabled
+
+0.1.2 changes one function of the vendored code, `setup_distributed()` in `syncreward/utils.py` (the torchrun entry point of training,
+which reads two environment variables and was the only finding of the Comfy Registry's automated scan for 0.1.0 and 0.1.1); the nodes
+never call it. `tests/test_vendor.py` checks that the change touches nothing else (syntax trees compared with the pinned upstream file)
+and that the installed package contains no environment-variable, network or process code. Real weights through the queue on
+2026-10-18 (ComfyUI environment, the 10 demo clips): 9 of 10 rewards identical to the official script, one (case 5 after) one bfloat16
+step apart (1.1094 vs 1.1172) — the same result as section 3.
+
 ## Commands
 
 ```
