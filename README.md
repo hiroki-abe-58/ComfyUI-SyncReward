@@ -44,7 +44,7 @@ Windows 11, RTX 5090 (32 GB), ComfyUI v0.38.0, the ten demo clips of the officia
   official `evaluate.py` run on the same machine gives 0.7810 / 0.7641 / 0.8351). In the official environment the rewards of the pack and of
   `evaluate.py` differ by at most one bfloat16 step (0.008) on all 1,000 clips. See [LIMITATIONS.md](LIMITATIONS.md).
 
-**Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, other ComfyUI versions, real (not generated) videos, clips that are not
+**Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, other ComfyUI versions with the real model (the CPU tests and the real-queue check also run against ComfyUI v0.41.0 in CI), real (not generated) videos, clips that are not
 about 5 s long, and the case *Select Best* is meant for: several candidates of the same prompt from the same generator.
 
 > **Read [LIMITATIONS.md](LIMITATIONS.md) before you rely on the score or on *Select Best*.** Measured on 70 well-synchronized
