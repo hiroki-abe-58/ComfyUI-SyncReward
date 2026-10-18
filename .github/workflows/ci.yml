@@ -13,8 +13,6 @@ permissions:
 # facebook/pe-av-large is fetched (pinned revision, SHA-256 checked) to test the PE-AV configuration fix on the installed
 # transformers version. Scoring with the real weights (about 15 GB) is checked outside CI; see docs/VERIFICATION.md.
 env:
-  COMFYUI_REF: v0.38.0
-  COMFYUI_COMMIT: 6b747c0428c343e1417219641db93a4fb7cb69ae
   UPSTREAM_COMMIT: f29fbdc2bb2dd3d59644ffd3c60d207dd3e62615
   PEAV_REVISION: 0d24878d4107d64bef49e53602fc34ce6f94f6d8
 
@@ -23,8 +21,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        comfyui: ["v0.38.0"]  # the ComfyUI release the pack was verified with
         os: [ubuntu-24.04, windows-latest]
         transformers: ["5.1.0", "latest"]
+        include:
+          # the current ComfyUI release as well
+          - os: ubuntu-24.04
+            transformers: "latest"
+            comfyui: "v0.41.0"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     defaults:
@@ -42,8 +46,9 @@ jobs:
 
       - name: Reference checkouts and the PE-AV config (pinned)
         run: |
-          git -c core.autocrlf=false clone --quiet --depth 1 --branch $env:COMFYUI_REF https://github.com/Comfy-Org/ComfyUI.git refs/ComfyUI
-          if ((git -C refs/ComfyUI rev-parse HEAD) -ne $env:COMFYUI_COMMIT) { throw "ComfyUI commit mismatch" }
+          git -c core.autocrlf=false clone --quiet --depth 1 --branch "${{ matrix.comfyui }}" https://github.com/Comfy-Org/ComfyUI.git refs/ComfyUI
+          $pinned = @{ 'v0.38.0' = '6b747c0428c343e1417219641db93a4fb7cb69ae'; 'v0.41.0' = '98cc0bf84b7cb1383654c5b402e7612d875d6d22' }["${{ matrix.comfyui }}"]
+          if (-not $pinned -or (git -C refs/ComfyUI rev-parse HEAD) -ne $pinned) { throw "ComfyUI commit mismatch" }
           git -c core.autocrlf=false clone --quiet --filter=blob:none https://github.com/WeChatCV/SyncReward.git refs/SyncReward
           git -C refs/SyncReward -c core.autocrlf=false checkout --quiet $env:UPSTREAM_COMMIT
           New-Item -ItemType Directory -Force refs/peav | Out-Null
