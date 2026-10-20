@@ -56,7 +56,7 @@ about 5 s long, and the case *Select Best* is meant for: several candidates of t
 ## Install
 
 1. ComfyUI with the V3 node API (**v0.38.0** was used), Python 3.10+, an NVIDIA GPU with about 10 GB of free VRAM (CPU works, slowly).
-2. Put this folder into `ComfyUI/custom_nodes/` (or install it from the ComfyUI Manager / Comfy Registry once listed) and install its
+2. Put this folder into `ComfyUI/custom_nodes/` (or install `syncreward` from the ComfyUI Manager / Comfy Registry) and install its
    requirements into ComfyUI's Python:
 
    ```
