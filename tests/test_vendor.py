@@ -1,5 +1,6 @@
-"""The vendored upstream package must stay byte-identical to the pinned upstream commit, apart from the one documented change of
-scripts/vendor_patch.py, and the installed package must not contain environment-variable, network or process code."""
+"""The vendored upstream package must stay byte-identical to the pinned upstream commit, apart from the two documented changes of
+scripts/vendor_patch.py, and the installed package must not contain environment-variable, network, process or unsafe
+deserialization code."""
 
 import hashlib
 import re
@@ -43,25 +44,29 @@ def test_byte_identical_to_upstream_checkout(upstream_dir):
     assert len(list((upstream / "syncreward").rglob("*.py"))) == len(list((VENDOR / "syncreward").rglob("*.py")))
 
 
-def test_the_patch_changes_only_the_training_entry_point(upstream_dir):
+def test_the_patch_changes_only_the_two_documented_functions(upstream_dir):
     import ast
 
     import vendor_patch
 
+    expected = {"syncreward/utils.py": ["setup_distributed"], "syncreward/model.py": ["load_state_dict"]}
+    assert vendor_patch.PATCHED == set(expected)
     for rel in vendor_patch.PATCHED:
         before = ast.parse((Path(upstream_dir) / rel).read_text(encoding="utf-8"))
         after = ast.parse((VENDOR / rel).read_text(encoding="utf-8"))
         changed = [a.name for a, b in zip(before.body, after.body) if ast.dump(a) != ast.dump(b)]
-        assert len(before.body) == len(after.body) and changed == ["setup_distributed"]
+        assert len(before.body) == len(after.body) and changed == expected[rel]
 
 
 PACKAGE_FILES = [p for p in [ROOT / "__init__.py", *(ROOT / "syncreward_comfy").rglob("*.py"), *(ROOT / "tools").rglob("*.py")]
                  if "__pycache__" not in p.parts]
-FORBIDDEN = re.compile(r"os\.environ|getenv|putenv|urllib|requests\.|http\.client|socket\.|subprocess|os\.system|importlib|(?<![.\w])exec\(|(?<![.\w])eval\(|__import__")
+FORBIDDEN = re.compile(r"os\.environ|getenv|putenv|urllib|requests\.|http\.client|socket\.|subprocess|os\.system|importlib|(?<![.\w])exec\(|(?<![.\w])eval\(|__import__"
+                       r"|weights_only\s*=\s*False|pickle")
 
 
 def test_package_has_no_environment_network_or_process_code():
-    """The categories of the Comfy Registry's automated scan (scripts/ and tests/ are not part of the Registry package)."""
+    """The categories of the Comfy Registry's scan and review (scripts/ and tests/ are not part of the Registry package), including
+    deserialization that can run code (torch.load with weights_only=False, pickle)."""
     hits = [f"{p.relative_to(ROOT).as_posix()}:{n}: {line.strip()}" for p in PACKAGE_FILES
             for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1) if FORBIDDEN.search(line)]
     assert not hits, "\n".join(hits)

@@ -209,6 +209,16 @@ The official script itself moves by one step with its batch size (batch 1 vs bat
 0.0078), so the remaining one-step differences are not decoding differences. Regression tests: `tests/test_media.py` now checks a video whose
 audio is longer than its picture, a first-packet skip of 2048 over two frames and the microsecond rounding of the frame rate.
 
+## 12. 0.1.3: the vendored checkpoint loader no longer unpickles
+
+The Comfy Registry review flagged 0.1.2 as insecure deserialization: the vendored `load_state_dict()` in `syncreward/model.py` read
+training checkpoints (`.pt`) with `torch.load(weights_only=False)`. 0.1.3 changes that call to `weights_only=True`. The nodes list
+only checkpoint folders that contain `model.safetensors` and load that file, so they never used this branch. `tests/test_vendor.py`
+checks the change (syntax trees compared with the pinned upstream file: only `load_state_dict` and `setup_distributed` differ) and
+now also rejects `weights_only=False` and `pickle` anywhere in the installed package. Real weights through the queue on 2026-10-21
+(ComfyUI v0.38.0 environment, RTX 5090, the 10 demo clips): 9 of 10 rewards identical to the official script, case 5 after one
+bfloat16 step apart (1.1094 vs 1.1172), the same as 0.1.2.
+
 ## 11. 0.1.2: the vendored training entry point is disabled
 
 0.1.2 changes one function of the vendored code, `setup_distributed()` in `syncreward/utils.py` (the torchrun entry point of training,

@@ -1,3 +1,4 @@
+# This file was changed by ComfyUI-SyncReward; syncreward_comfy/vendor/UPSTREAM.md describes the change.
 """PE-AV segment encoder, cross-modal reward transformer, checkpoint I/O and batched inference."""
 
 import json
@@ -159,7 +160,7 @@ def load_state_dict(path):
         from safetensors.torch import load_file
 
         return load_file(str(path))
-    state = torch.load(path, map_location="cpu", weights_only=False)
+    state = torch.load(path, map_location="cpu", weights_only=True)
     return state.get("model_state_dict", state)
 
 
